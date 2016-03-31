@@ -133,13 +133,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 // Copyright (c) Microsoft Corporation. All rights reserved
 
 //
-//   FUNCTION: CaptureAnImage(HWND hWnd, HWND active)
+//   FUNCTION: CaptureAnImage(HWND active)
 //
-//   PURPOSE: Captures a screenshot into a window and then saves it in a .bmp file.
+//   PURPOSE: Captures a screenshot and saves it in a .bmp file.
 //
 //   COMMENTS: 
 //
-//      Note: This sample will attempt to create a file called captureqwsx.bmp 
+//      Note: This sample will attempt to create a file with the same title as the window, 
+//			and a max limit of approximately 100 chars 
 //        
 
 //hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
@@ -167,26 +168,10 @@ int CaptureAnImage(HWND active)
 		goto done;
 	}
 
-	// Get the client area for size calculation
+	// Get the Window area for size calculation
 	RECT rcWindow;
 	GetWindowRect(active, &rcWindow);
-	/*
-	//This is the best stretch mode
-	SetStretchBltMode(hdcWindow, HALFTONE);
 
-	//The source DC is the ActiveWindow and the destination DC is the current window (HWND)
-	if (!StretchBlt(hdcWindow,
-		0, 0,
-		rcClient.right, rcClient.bottom,
-		hdcActive,
-		0, 0, 
-		rcWindow.right, rcWindow.bottom,
-		SRCCOPY))
-	{
-		MessageBox(hWnd, L"StretchBlt has failed", L"Failed", MB_OK);
-		goto done;
-	}
-	*/
 	// Create a compatible bitmap from the Active DC
 	hbmActive = CreateCompatibleBitmap(hdcActive, rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top);
 
@@ -245,10 +230,13 @@ int CaptureAnImage(HWND active)
 		(BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
 	// A file is created, this is where we will save the screen capture.
+	CreateDirectory(L"pictures", NULL);
+	wchar_t titley[100];
 	wchar_t title[100];
-	GetWindowText(active, title, sizeof(title) - 10*sizeof(wchar_t));
-	wcsncat_s(title, 100, L".bmp", 8);
-
+	GetWindowText(active, titley, 50);
+	wcsncpy_s(title,100,L"pictures\/", 9);
+	wcsncat_s(title, 100, titley, 50);
+	wcsncat_s(title, 100, L".bmp", 4);
 	HANDLE hFile = CreateFile(title,
 		GENERIC_WRITE,
 		0,
@@ -278,6 +266,7 @@ int CaptureAnImage(HWND active)
 	GlobalFree(hDIB);
 
 	//Close the handle for the file that was created
+	//Do we need to close folder?
 	CloseHandle(hFile);
 
 	//Clean up
