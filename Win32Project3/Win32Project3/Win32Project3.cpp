@@ -4,6 +4,9 @@
 #include "stdafx.h"
 #include "Win32Project3.h"
 #include <cwchar>
+#include <gdiplus.h>
+
+
 
 
 #define MAX_LOADSTRING 100
@@ -21,6 +24,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam);
+INT GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
@@ -59,6 +63,37 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	return (int)msg.wParam;
 }
 
+
+int GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
+{
+	UINT  num = 0;          // number of image encoders
+	UINT  size = 0;         // size of the image encoder array in bytes
+
+	Gdiplus::ImageCodecInfo* pImageCodecInfo = NULL;
+
+	Gdiplus::GetImageEncodersSize(&num, &size);
+	if (size == 0)
+		return -1;  // Failure
+
+	pImageCodecInfo = (Gdiplus::ImageCodecInfo*)(malloc(size));
+	if (pImageCodecInfo == NULL)
+		return -1;  // Failure
+
+	Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
+
+	for (UINT j = 0; j < num; ++j)
+	{
+		if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0)
+		{
+			*pClsid = pImageCodecInfo[j].Clsid;
+			free(pImageCodecInfo);
+			return j;  // Success
+		}
+	}
+
+	free(pImageCodecInfo);
+	return -1;  // Failure
+}
 
 
 //
@@ -153,7 +188,12 @@ int CaptureAnImage(HWND active)
 	HDC hdcActive;
 	HDC hdcMemDC = NULL;
 	HBITMAP hbmActive = NULL;
-	BITMAP bmpActive;
+//	BITMAP bmpActive;
+
+// Initialize GDI+.
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR gdiplusToken;
+	Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
 	// Retrieve the handle to a display device context for the client 
 	// area of the window. 
@@ -174,12 +214,40 @@ int CaptureAnImage(HWND active)
 
 	// Create a compatible bitmap from the Active DC
 	hbmActive = CreateCompatibleBitmap(hdcActive, rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top);
+	// Select the compatible bitmap into the compatible memory DC.
+	SelectObject(hdcMemDC, hbmActive);
 
+	// Bit block transfer into our compatible memory DC.
+	if (!BitBlt(hdcMemDC,
+		0, 0,
+		rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top,
+		hdcActive,
+		0, 0,
+		SRCCOPY))
+	{
+		MessageBox(hWnd, L"BitBlt has failed", L"Failed", MB_OK);
+		goto done;
+	}
 	if (!hbmActive)
 	{
 		MessageBox(hWnd, L"CreateCompatibleBitmap Failed", L"Failed", MB_OK);
 		goto done;
 	}
+	CreateDirectory(L"pictures", NULL);
+	wchar_t titley[100];
+	wchar_t title[100];
+	GetWindowText(active, titley, 50);
+	wcsncpy_s(title, 100, L"pictures/", 9);
+	wcsncat_s(title, 100, titley, 50);
+	wcsncat_s(title, 100, L".jpg", 4);
+
+
+	CLSID *jpgclsid = new CLSID;
+	GetEncoderClsid(L"image/jpeg", jpgclsid);
+	Gdiplus::Bitmap* sah = Gdiplus::Bitmap::FromHBITMAP(hbmActive, NULL);
+	sah->Save(title, jpgclsid, 0);
+	/*
+
 
 	// Select the compatible bitmap into the compatible memory DC.
 	SelectObject(hdcMemDC, hbmActive);
@@ -230,13 +298,16 @@ int CaptureAnImage(HWND active)
 		(BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
 	// A file is created, this is where we will save the screen capture.
+	/*
 	CreateDirectory(L"pictures", NULL);
 	wchar_t titley[100];
 	wchar_t title[100];
 	GetWindowText(active, titley, 50);
 	wcsncpy_s(title,100,L"pictures\/", 9);
 	wcsncat_s(title, 100, titley, 50);
-	wcsncat_s(title, 100, L".bmp", 4);
+	wcsncat_s(title, 100, L".bmp", 4);*/
+
+	/*
 	HANDLE hFile = CreateFile(title,
 		GENERIC_WRITE,
 		0,
@@ -260,14 +331,16 @@ int CaptureAnImage(HWND active)
 	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
 	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
 	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, NULL);
+	System.Drawing::bmpActive.Save(title, System::Drawing::Imaging::ImageFormat::Jpeg);
 
+	*/
 	//Unlock and Free the DIB from the heap
-	GlobalUnlock(hDIB);
-	GlobalFree(hDIB);
+	//GlobalUnlock(hDIB);
+	//GlobalFree(hDIB);
 
 	//Close the handle for the file that was created
 	//Do we need to close folder?
-	CloseHandle(hFile);
+	//CloseHandle(hFile);
 
 	//Clean up
 done:
@@ -275,6 +348,7 @@ done:
 	DeleteObject(hdcMemDC);
 	ReleaseDC(active, hdcActive);
 
+	Gdiplus::GdiplusShutdown(gdiplusToken);
 	return 0;
 }
 
