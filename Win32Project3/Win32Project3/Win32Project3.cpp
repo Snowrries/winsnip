@@ -61,6 +61,12 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	}
 
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
+	UINT_PTR timer = SetTimer(
+		cliwin,
+		0,
+		1,//Milliseconds
+		NULL
+		);
 
 	// Main message loop:
 	while (GetMessage(&msg, NULL, 0, 0))
@@ -71,6 +77,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			DispatchMessage(&msg);
 		}
 	}
+
 
 	return (int)msg.wParam;
 }
@@ -159,13 +166,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	hInst = hInstance; // Store instance handle in our global variable
 
 	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
+		500, 100, 300, 100, NULL, NULL, hInstance, NULL);
+
+	/*hWnd = CreateWindow(
+	L"BUTTON",  // Predefined class; Unicode assumed
+	L"Press me?",      // Button text
+	WS_TABSTOP | WS_CAPTION	 | BS_DEFPUSHBUTTON,  // Styles
+	10,         // x position
+	10,         // y position
+	150,        // Button width
+	100,        // Button height
+	NULL,     // Parent window
+	NULL,       // No menu.
+	hInstance,
+	NULL);      // Pointer not needed.*/
 	cliwin = hWnd;
 	if (!hWnd)
 	{
 		return FALSE;
 	}
-
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
@@ -210,7 +229,7 @@ int CaptureAnImage(HWND active)
 
 	// Retrieve the handle to a display device context for the client 
 	// area of the window. 
-	hdcActive = GetDC(active);
+	hdcActive = GetWindowDC(active);
 
 	// Create a compatible DC which is used in a BitBlt from the window DC
 	hdcMemDC = CreateCompatibleDC(hdcActive);
@@ -378,6 +397,13 @@ done:
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam) {
 	if(IsWindowVisible(hWnd))
 		CaptureAnImage(hWnd);
+	UINT_PTR timer = SetTimer(
+		NULL,
+		0,
+		2,//Milliseconds
+		NULL
+		);
+
 	return TRUE;
 }
 //
@@ -418,6 +444,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		break;
+
+	case WM_TIMER:
 
 	case WM_MOVE:
 
