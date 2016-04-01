@@ -395,8 +395,14 @@ done:
 }
 
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam) {
-	if(IsWindowVisible(hWnd))
+	TCHAR szText[256];
+	if (IsWindowVisible(hWnd) && GetWindow(hWnd, GW_OWNER) == NULL) {
+		//Visible, has no owners
+		if (GetWindowText(hWnd, szText, 256) == 0) // No text in window
+			return TRUE;
+		//Checking to see if the window has a title bar.
 		CaptureAnImage(hWnd);
+	}
 	UINT_PTR timer = SetTimer(
 		NULL,
 		0,
