@@ -6,7 +6,12 @@
 #include <cwchar>
 #include <gdiplus.h>
 
+#pragma comment (lib, "Ws2_32.lib")
+#pragma comment (lib, "Mswsock.lib")
+#pragma comment (lib, "AdvApi32.lib")
+//For use with network socketing
 
+#define DEFAULT_PORT "27015"
 
 
 #define MAX_LOADSTRING 100
@@ -17,7 +22,8 @@ HINSTANCE hInst;                        // current instance
 TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
 HWND cliwin;
-IStorage* youStorage = NULL;
+//IStorage* youStorage = NULL; //Currently unnecessary
+SOCKET ConnectSocket = INVALID_SOCKET;
 
 /// Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -27,7 +33,8 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 
-///Main function
+
+///Main function. First argument in command line should be the IP address of the server. 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPTSTR    lpCmdLine,
@@ -38,6 +45,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 	MSG msg;
 	HACCEL hAccelTable;
+	int iResult; //To take the result of function calls
+	WSADATA wsaData; //Sockets.
+	struct addrinfo *result = NULL, //For socketing address purposes
+		*ptr = NULL,
+		hints;
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -46,11 +58,61 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 	// Create a compound file object, and get
 	// a pointer to its IStorage interface.
-	StgCreateDocfile(
-		L"CompoundFile.cmp",
-		STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
-		0,
-		&youStorage);
+	//StgCreateDocfile(
+	//	L"CompoundFile.cmp",
+	//	STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
+	//	0,
+	//	&youStorage);
+
+	//Socketing adapted from MSDN example
+
+	// Initialize Winsock
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (iResult != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult);
+		return 1;
+	}
+
+	ZeroMemory(&hints, sizeof(hints)); // A calloc
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	// Resolve the server address and port
+	iResult = getaddrinfo(__argv[1], DEFAULT_PORT, &hints, &result);
+	if (iResult != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult);
+		WSACleanup();
+		return 1;
+	}
+	// Attempt to connect to an address until one succeeds
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+		// Create a SOCKET for connecting to server
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+			ptr->ai_protocol);
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 1;
+		}
+
+		// Connect to server.
+		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (iResult == SOCKET_ERROR) {
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(result);
+
+if (ConnectSocket == INVALID_SOCKET) {
+	printf("Unable to connect to server!\n");
+	WSACleanup();
+	return 1;
+}
 
 	// Perform application initialization:
 	if (!InitInstance(hInstance, nCmdShow))
@@ -207,6 +269,9 @@ int CaptureAnImage(HWND active)
 	HDC hdcMemDC = NULL;
 	HBITMAP hbmActive = NULL;
 	IStream* youStream = NULL;
+	ULONG count;
+	ULARGE_INTEGER full;
+	INT result;
 //	BITMAP bmpActive;
 
 // Initialize GDI+.
@@ -259,18 +324,72 @@ int CaptureAnImage(HWND active)
 	wcsncpy_s(title, 100, L"pictures/", 9);
 	wcsncat_s(title, 100, titley, 50);
 	wcsncat_s(title, 100, L".jpg", 4);
-	youStorage->CreateStream(
+	/*youStorage->CreateStream(
 		title,
 		STGM_READWRITE | STGM_SHARE_EXCLUSIVE,
 		0,
 		0,
 		&youStream);
-
+		*/
 	CLSID *jpgclsid = new CLSID;
 	GetEncoderClsid(L"image/jpeg", jpgclsid);
 	Gdiplus::Bitmap* sah = Gdiplus::Bitmap::FromHBITMAP(hbmActive, NULL);
-	sah->Save(title, jpgclsid, 0);
+	//sah->Save(title, jpgclsid, 0);
+	//sah->Save(youStream, jpgclsid, 0);
+	//Above two lines are for the iStream implementation.
+	//Below is the network socket implementation.
 	sah->Save(youStream, jpgclsid, 0);
+	//The istream created is in memory, should be able to read from youStream and write to a socket.
+	count =  0;
+	IStream_Size(youStream, &full);
+	void* buffer = malloc((size_t)full.QuadPart);//Doublecheck this line
+	ULONG rcoun = 0;
+	//Consider threading networking area below to increase efficiency and decrease hanging (?)
+	//Issue: Would need to create a new socket for each thread if we go this route: likely infeasible for client-side.
+	while (count < full.QuadPart) {
+		result = youStream->Read(buffer, full.QuadPart, &rcoun);
+		if (result != S_OK && result != S_FALSE) {
+			System::Console::Write("iStream read error");
+			System::Console::WriteLine();
+			goto done;
+		}
+		count = count + rcoun;
+	}
+	count = 0;
+	char* buf = (char*)malloc(sizeof(hWnd));
+	memcpy(buf, hWnd, sizeof(hWnd));
+	//loop while there is more data: 
+	//Send hWnd as unique identifier
+	while (count < sizeof(hWnd)) {
+		count += send(ConnectSocket, buf, sizeof(hWnd), NULL);
+	}
+	free(buf);
+	//Send 2 newlines
+	count = 0;
+	while (count < sizeof("\n\n")) {
+		count += send(ConnectSocket, "\n\n", 2, NULL);
+	}
+
+	//Send name 
+	count = 0;
+	buf = (char*)malloc(sizeof(title));
+	memcpy(buf, title, sizeof(title));
+	while (count < sizeof(title)) {
+		count += send(ConnectSocket, buf, sizeof(buf), NULL);
+	}
+	free(buf);
+ 
+	//Send 2 newlines
+	count = 0;
+	while (count < sizeof("\n\n")) {
+		count += send(ConnectSocket, "\n\n", 2, NULL);
+	}
+	//Send image
+	while (count < full.QuadPart) {
+		//Write to socket and keep track of bytes written in count, update accordingly.
+		break;
+	}
+
 	/*
 	//Original code to save each window as a BMP. May need if higher resolution pictures are required.
 
@@ -438,6 +557,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDM_EXIT:
 			DestroyWindow(hWnd);
+			//Close sockets here.
+			closesocket(ConnectSocket);
+			WSACleanup();
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -445,6 +567,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_TIMER:
+		//Should default to do what's in WM_PAINT, but we can shift it here if there are errors. 
 
 	case WM_MOVE:
 
@@ -452,6 +575,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hdc = BeginPaint(hWnd, &ps);
 		EnumWindows(EnumWindowsProc, 0);
 		EndPaint(hWnd, &ps);
+		break;
+	case WM_CLOSE://I hope this is what is called when the application is terminated.
+		closesocket(ConnectSocket);
+		WSACleanup();
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);

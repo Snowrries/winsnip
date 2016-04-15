@@ -1,2 +1,4 @@
 ﻿  Win32Project3.cpp
+Win32Project3.cpp(350): warning C4244: 'argument': conversion from 'ULONGLONG' to 'ULONG', possible loss of data
+  .NETFramework,Version=v4.0.AssemblyAttributes.cpp
   Win32Project3.vcxproj -> C:\Users\KewhyKrumm\documents\visual studio 2015\Projects\Win32Project3\Debug\Win32Project3.exe

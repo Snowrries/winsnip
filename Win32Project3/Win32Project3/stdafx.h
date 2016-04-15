@@ -24,3 +24,5 @@
 
 // TODO: reference additional headers your program requires here
 #include <Shlwapi.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
