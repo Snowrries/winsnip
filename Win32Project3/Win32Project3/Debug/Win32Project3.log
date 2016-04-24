@@ -1,3 +1,4 @@
 ﻿  Win32Project3.cpp
-Win32Project3.cpp(358): warning C4244: 'argument': conversion from 'ULONGLONG' to 'ULONG', possible loss of data
-  Win32Project3.vcxproj -> C:\Users\KewhyKrumm\documents\visual studio 2015\Projects\Win32Project3\Debug\Win32Project3.exe
+Win32Project3.cpp(306): warning C4244: 'argument': conversion from 'ULONGLONG' to 'ULONG', possible loss of data
+Win32Project3.cpp(230): warning C4101: 'bmpActive': unreferenced local variable
+  Win32Project3.vcxproj -> C:\Users\KewhyKrumm\Documents\Visual Studio 2015\Projects\Win32Project3\Debug\Win32Project3.exe

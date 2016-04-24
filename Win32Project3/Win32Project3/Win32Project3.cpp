@@ -31,12 +31,12 @@ HWND cliwin;
 SOCKET ConnectSocket = INVALID_SOCKET;
 
 /// Forward declarations of functions included in this code module:
-//ATOM                MyRegisterClass(HINSTANCE hInstance);
-//BOOL                InitInstance(HINSTANCE, int);
-//LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-//INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-//BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
-//INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
+ATOM                MyRegisterClass(HINSTANCE hInstance);
+BOOL                InitInstance(HINSTANCE, int);
+LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
+INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 char ip[25];
 
 ///Main function. First argument in command line should be the IP address of the server. 
@@ -348,7 +348,7 @@ int CaptureAnImage(HWND active)
 
 	
 	//Original code to save each window as a BMP. May need if higher resolution pictures are required.
-
+	/*
 	// Select the compatible bitmap into the compatible memory DC.
 	SelectObject(hdcMemDC, hbmActive);
 
@@ -403,7 +403,7 @@ int CaptureAnImage(HWND active)
 	wchar_t titley[100];
 	wchar_t title[100];
 	GetWindowText(active, titley, 50);
-	wcsncpy_s(title,100,L"pictures\/", 9);
+	wcsncpy_s(title,100,L"pictures/", 9);
 	wcsncat_s(title, 100, titley, 50);
 	wcsncat_s(title, 100, L".bmp", 4);
 
@@ -431,9 +431,9 @@ int CaptureAnImage(HWND active)
 	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
 	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
 	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, NULL);
-	System.Drawing::bmpActive.Save(title, System::Drawing::Imaging::ImageFormat::Jpeg);
+	System::Drawing::bmpActive.Save(title, System::Drawing::Imaging::ImageFormat::Jpeg);
 
-
+	*/
 	//Unlock and Free the DIB from the heap
 	//GlobalUnlock(hDIB);
 	//GlobalFree(hDIB);
