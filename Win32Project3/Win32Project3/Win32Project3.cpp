@@ -125,7 +125,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			hints.ai_protocol = IPPROTO_TCP;
 
 			// Resolve the server address and port
-			iResult = getaddrinfo("192.168.1.113", DEFAULT_PORT, &hints, &result);
+			iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
 			if (iResult != 0) {
 				printf("getaddrinfo failed with error: %d\n", iResult);
 				WSACleanup();
@@ -389,15 +389,7 @@ int CaptureAnImage(HWND active)
 		}
 		count = count + rcoun;
 	}
-	count = 0;
-	char* buf = (char*)malloc(sizeof(hWnd));
-	memcpy(buf, hWnd, sizeof(hWnd));
-	//loop while there is more data:
-	//Send hWnd as unique identifier
-	while (count < sizeof(hWnd)) {
-		count += send(ConnectSocket, buf, sizeof(hWnd), NULL);
-	}
-	free(buf);
+	char *buf;
 	//Send 2 newlines
 	count = 0;
 	while (count < sizeof("\n\n")) {
@@ -406,10 +398,11 @@ int CaptureAnImage(HWND active)
 
 	//Send name
 	count = 0;
-	buf = (char*)malloc(sizeof(titley));
-	memcpy(buf, titley, sizeof(titley));
-	while (count < sizeof(titley)) {
-		count += send(ConnectSocket, &buf[count], sizeof(buf)-count, NULL);
+	size_t r;
+	buf = (char*)malloc(64);
+	wcstombs_s(&r,buf,64,titley,64);
+	while (count < strlen(buf)) {
+		count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
 	}
 	free(buf);
 
