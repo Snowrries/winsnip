@@ -37,7 +37,7 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
-char ip[25];
+char ip[25] = { 0 };
 
 ///Main function. First argument in command line should be the IP address of the server. 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -46,7 +46,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	int       nCmdShow)
 {
 	ip[0] = 0;
-	HACCEL hAccelTable;
+//	HACCEL hAccelTable;
 	int iResult; //To take the result of function calls
 	WSADATA wsaData; //Sockets.
 	struct addrinfo *result = NULL, //For socketing address purposes
@@ -115,7 +115,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			hints.ai_protocol = IPPROTO_TCP;
 
 			// Resolve the server address and port
-			iResult = getaddrinfo("192.168.1.113", DEFAULT_PORT, &hints, &result);
+			iResult = getaddrinfo("192.168.1.9", DEFAULT_PORT, &hints, &result);
 			if (iResult != 0) {
 				printf("getaddrinfo failed with error: %d\n", iResult);
 				WSACleanup();
@@ -139,7 +139,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 					ConnectSocket = INVALID_SOCKET;
 					continue;
 				}
-				printf("Connected to socket at IP: 192.168.1.113");
+				printf("Connected to socket at IP: 192.168.1.9");
 				connected = 1;
 				break;
 			}
@@ -154,9 +154,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 		}
 		//We are connected send the byte stream
-		else if (connected == 1) {
-			break;
-		}
+		//else if (connected == 1) {
+		//}
 	}
 
 	
@@ -291,7 +290,7 @@ int CaptureAnImage(HWND active)
 	ULONG count;
 	ULARGE_INTEGER full;
 	INT result;
-	BITMAP bmpActive;
+//	BITMAP bmpActive;
 
 	// Initialize GDI+.
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
@@ -362,18 +361,20 @@ int CaptureAnImage(HWND active)
 	//The istream created is in memory, should be able to read from youStream and write to a socket.
 	count =  0;
 	IStream_Size(youStream, &full);
-	void* buffer = malloc((size_t)full.QuadPart);//Doublecheck this line
+	char* buffer = (char*)malloc((size_t)full.QuadPart);//Doublecheck this line
 	ULONG rcoun = 0;
+	IStream_Reset(youStream);
 	//Consider threading networking area below to increase efficiency and decrease hanging (?)
 	//Issue: Would need to create a new socket for each thread if we go this route: likely infeasible for client-side.
 	while (count < full.QuadPart) {
-	result = youStream->Read(buffer, full.QuadPart, &rcoun);
-	if (result != S_OK && result != S_FALSE) {
-	System::Console::Write("iStream read error");
-	System::Console::WriteLine();
-	goto done;
-	}
-	count = count + rcoun;
+		result = youStream->Read(&buffer[count], full.QuadPart, &rcoun);
+		//	result = IStream_Read(youStream, buffer, full.QuadPart);
+		if (result != S_OK && result != S_FALSE) {
+			System::Console::Write("iStream read error");
+			System::Console::WriteLine();
+			goto done;
+		}
+		count = count+ rcoun;
 	}
 	count = 0;
 	char* buf = (char*)malloc(sizeof(hWnd));
@@ -381,36 +382,37 @@ int CaptureAnImage(HWND active)
 	//loop while there is more data:
 	//Send hWnd as unique identifier
 	while (count < sizeof(hWnd)) {
-	count += send(ConnectSocket, buf, sizeof(hWnd), NULL);
+		count += send(ConnectSocket, buf, sizeof(hWnd), NULL);
 	}
 	free(buf);
 	//Send 2 newlines
 	count = 0;
 	while (count < sizeof("\n\n")) {
-	count += send(ConnectSocket, "\n\n", 2, NULL);
+		count += send(ConnectSocket, "\n\n", 2, NULL);
 	}
 
 	//Send name
 	count = 0;
-	buf = (char*)malloc(sizeof(title));
-	memcpy(buf, title, sizeof(title));
-	while (count < sizeof(title)) {
-	count += send(ConnectSocket, buf, sizeof(buf), NULL);
+	buf = (char*)malloc(sizeof(titley));
+	memcpy(buf, titley, sizeof(titley));
+	while (count < sizeof(titley)) {
+		count += send(ConnectSocket, &buf[count], sizeof(buf)-count, NULL);
 	}
 	free(buf);
 
 	//Send 2 newlines
 	//count = 0;
 	while (count < sizeof("\n\n")) {
-	count += send(ConnectSocket, "\n\n", 2, NULL);
+		count += send(ConnectSocket, "\n\n", 2, NULL);
 	}
 	//Send image
 	while (count < full.QuadPart) {
-	//Write to socket and keep track of bytes written in count, update accordingly.
-	break;
-	}
+		//Write to socket and keep track of bytes written in count, update accordingly.
 
-	
+		count += send(ConnectSocket, &buffer[count], full.QuadPart, NULL);
+
+	}
+	free(buffer);
 	//Original code to save each window as a BMP. May need if higher resolution pictures are required.
 	/*
 	// Select the compatible bitmap into the compatible memory DC.
@@ -540,7 +542,7 @@ int CaptureAnImage(HWND active)
 	UINT_PTR timer = SetTimer(
 		cliwin,
 		0,
-		50,//Milliseconds
+		5000,//Milliseconds
 		NULL
 		);
 
@@ -608,7 +610,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			UINT_PTR timer = SetTimer(
 				cliwin,
 				0,
-				50,//Milliseconds
+				5000,//Milliseconds
 				NULL
 				);
 		}
