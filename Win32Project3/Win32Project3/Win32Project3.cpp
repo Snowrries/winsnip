@@ -37,7 +37,11 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
+<<<<<<< HEAD
 char ip[25] = { 0 };
+=======
+char ip[25] = "";
+>>>>>>> origin/master
 
 ///Main function. First argument in command line should be the IP address of the server. 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -45,8 +49,13 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	LPTSTR    lpCmdLine,
 	int       nCmdShow)
 {
+<<<<<<< HEAD
 	ip[0] = 0;
 //	HACCEL hAccelTable;
+=======
+
+	HACCEL hAccelTable;
+>>>>>>> origin/master
 	int iResult; //To take the result of function calls
 	WSADATA wsaData; //Sockets.
 	struct addrinfo *result = NULL, //For socketing address purposes
@@ -96,13 +105,13 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	MSG msg;
 	int connected = 0;
 
-	while (GetMessage(&msg, NULL, 0, 0))
+	while (GetMessage(&msg, NULL, 0, 0) > 0)
 	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
 		//First time connection setup
-		if (ip[0] != 0 && !connected) {
+		if (ip != "" && !connected) {
 			iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 			if (iResult != 0) {
 				printf("WSAStartup failed with error: %d\n", iResult);
@@ -154,8 +163,14 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 		}
 		//We are connected send the byte stream
+<<<<<<< HEAD
 		//else if (connected == 1) {
 		//}
+=======
+		else if (connected == 1) {
+			
+		}
+>>>>>>> origin/master
 	}
 
 	
