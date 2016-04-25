@@ -31,17 +31,17 @@ HWND cliwin;
 SOCKET ConnectSocket = INVALID_SOCKET;
 
 /// Forward declarations of functions included in this code module:
-ATOM                MyRegisterClass(HINSTANCE hInstance);
-BOOL                InitInstance(HINSTANCE, int);
+//ATOM                MyRegisterClass(HINSTANCE hInstance);
+//BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
-<<<<<<< HEAD
+
 char ip[25] = { 0 };
-=======
-char ip[25] = "";
->>>>>>> origin/master
+
+
+
 
 ///Main function. First argument in command line should be the IP address of the server. 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
@@ -49,13 +49,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	LPTSTR    lpCmdLine,
 	int       nCmdShow)
 {
-<<<<<<< HEAD
-	ip[0] = 0;
+
 //	HACCEL hAccelTable;
-=======
+
 
 	HACCEL hAccelTable;
->>>>>>> origin/master
 	int iResult; //To take the result of function calls
 	WSADATA wsaData; //Sockets.
 	struct addrinfo *result = NULL, //For socketing address purposes
@@ -74,12 +72,12 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	wcex.cbWndExtra = 0;
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
 	wcex.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 	wcex.hInstance = hInstance;
 	wcex.lpfnWndProc = WndProc;
 	wcex.lpszClassName = windowClass;
-	wcex.lpszMenuName = NULL;
+	wcex.lpszMenuName = MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE);
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
 	if (!RegisterClassEx(&wcex))
 	{
@@ -98,12 +96,15 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		return EXIT_FAILURE;
 	}
 
+	cliwin = hWnd;
 
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
+
 	MSG msg;
 	int connected = 0;
+	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
 
 	while (GetMessage(&msg, NULL, 0, 0) > 0)
 	{
@@ -111,7 +112,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		DispatchMessage(&msg);
 
 		//First time connection setup
-		if (ip != "" && !connected) {
+		if (ip[0] != 0 && !connected) {
 			iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 			if (iResult != 0) {
 				printf("WSAStartup failed with error: %d\n", iResult);
@@ -124,7 +125,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			hints.ai_protocol = IPPROTO_TCP;
 
 			// Resolve the server address and port
-			iResult = getaddrinfo("192.168.1.9", DEFAULT_PORT, &hints, &result);
+			iResult = getaddrinfo("192.168.1.113", DEFAULT_PORT, &hints, &result);
 			if (iResult != 0) {
 				printf("getaddrinfo failed with error: %d\n", iResult);
 				WSACleanup();
@@ -163,14 +164,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 		}
 		//We are connected send the byte stream
-<<<<<<< HEAD
-		//else if (connected == 1) {
-		//}
-=======
+
 		else if (connected == 1) {
 			
 		}
->>>>>>> origin/master
+
 	}
 
 	
@@ -389,7 +387,7 @@ int CaptureAnImage(HWND active)
 			System::Console::WriteLine();
 			goto done;
 		}
-		count = count+ rcoun;
+		count = count + rcoun;
 	}
 	count = 0;
 	char* buf = (char*)malloc(sizeof(hWnd));
@@ -557,7 +555,7 @@ int CaptureAnImage(HWND active)
 	UINT_PTR timer = SetTimer(
 		cliwin,
 		0,
-		5000,//Milliseconds
+		50,//Milliseconds
 		NULL
 		);
 
@@ -625,7 +623,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			UINT_PTR timer = SetTimer(
 				cliwin,
 				0,
-				5000,//Milliseconds
+				50,//Milliseconds
 				NULL
 				);
 		}
