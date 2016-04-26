@@ -619,6 +619,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				WM_GETTEXT,
 				sizeof(ip) / sizeof(ip[0]),
 				reinterpret_cast<LPARAM>(ip));
+			char* buf = "localhost";
+			if (ip[0] == '\0') {
+				memcpy(ip, buf, 10);// Copy localhost with null byte into ip
+			}
 			//Set up window refresh timer
 			UINT_PTR timer = SetTimer(
 				cliwin,
@@ -626,6 +630,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				50,//Milliseconds
 				NULL
 				);
+			buttonpress = 1;
+			//Sets flag so socketing occurs
 		}
 		break;
 		}
