@@ -306,21 +306,21 @@ int CaptureAnImage(HWND active)
 	}
 	//char start[2] = { 0xFF,0xD8 };
 	//char end[2] = { 0xff, 0xd9 };
-	char *buf;
+	//char *buf;
 
 
 	//Send name
-	count = 0;
-	size_t r;
-	buf = (char*)malloc(64);
-	wcstombs_s(&r,buf,64,titley,64);
-	const char *len = (char*)strlen(buf);
-	send(ConnectSocket, len, sizeof(len),NULL);
+	//count = 0;
+	//size_t r;
+	//buf = (char*)malloc(64);
+	//wcstombs_s(&r,buf,64,titley,64);
+	//const char *len = (char*)strlen(buf);
+//	send(ConnectSocket, len, sizeof(len),NULL);
 
 	//while (count < strlen(buf)) {
 	//	count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
 	//}
-	free(buf);
+	//free(buf);
 	/*
 	count = 0;
 	char* bufx = (char*)malloc(sizeof(hWnd)+1);
@@ -334,12 +334,12 @@ int CaptureAnImage(HWND active)
 	*/
 	//Send 2 newlines
 	count = 0;
-	while (count < sizeof("\n\n")) {
-		count += send(ConnectSocket, "\n\n", 2, NULL);
-	}
+	//while (count < sizeof("\n\n")) {
+//		count += send(ConnectSocket, "\n\n", 2, NULL);
+//	}
 	
-	len = (char*)full.LowPart;
-	send(ConnectSocket, len, sizeof(len), NULL);
+	//len = (char*)full.LowPart;
+	//send(ConnectSocket, len, sizeof(len), NULL);
 	//Send image
 	while (count < full.LowPart) {
 		//Write to socket and keep track of bytes written in count, update accordingly.
