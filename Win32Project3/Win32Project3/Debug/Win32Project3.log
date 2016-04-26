@@ -1,4 +1,2 @@
 ﻿  Win32Project3.cpp
-Win32Project3.cpp(370): warning C4244: 'argument': conversion from 'ULONGLONG' to 'ULONG', possible loss of data
-Win32Project3.cpp(412): warning C4244: 'argument': conversion from 'ULONGLONG' to 'int', possible loss of data
-  Win32Project3.vcxproj -> C:\Users\KewhyKrumm\documents\visual studio 2015\Projects\Win32Project3\Debug\Win32Project3.exe
+  Win32Project3.vcxproj -> C:\Users\KewhyKrumm\Documents\Visual Studio 2015\Projects\Win32Project3\Debug\Win32Project3.exe

@@ -40,8 +40,7 @@ BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 
 char ip[25] = { 0 };
-
-
+int buttonpress = 0;
 
 
 ///Main function. First argument in command line should be the IP address of the server. 
@@ -65,7 +64,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	LPTSTR windowClass = TEXT("WinApp");
-	LPTSTR windowTitle = TEXT("Windows Application");
+	LPTSTR windowTitle = TEXT("WinSnip Texture Streamer");
 	WNDCLASSEX wcex;
 
 	wcex.cbClsExtra = 0;
@@ -88,10 +87,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	}
 
 	HWND hWnd;
-
+	//#define CreateWindowW(lpClassName, lpWindowName, dwStyle, x, y,\
+    //nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam)
 	if (!(hWnd = CreateWindow(windowClass, windowTitle, WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-		CW_USEDEFAULT, NULL, NULL, hInstance, NULL)))
+		CW_USEDEFAULT, CW_USEDEFAULT, 600,
+		350, NULL, NULL, hInstance, NULL)))
 	{
 		MessageBox(NULL, TEXT("CreateWindow Failed!"), TEXT("Error"), MB_ICONERROR);
 		return EXIT_FAILURE;
@@ -102,9 +102,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
-
-	MSG msg;
 	int connected = 0;
+	MSG msg;
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
 
 	while (GetMessage(&msg, NULL, 0, 0) > 0)
@@ -113,7 +112,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		DispatchMessage(&msg);
 
 		//First time connection setup
-		if (ip[0] != 0 && !connected) {
+		if (buttonpress) {
 			iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 			if (iResult != 0) {
 				printf("WSAStartup failed with error: %d\n", iResult);
@@ -126,7 +125,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			hints.ai_protocol = IPPROTO_TCP;
 
 			// Resolve the server address and port
-			iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+			iResult = getaddrinfo(ip, DEFAULT_PORT, &hints, &result);
 			if (iResult != 0) {
 				printf("getaddrinfo failed with error: %d\n", iResult);
 				WSACleanup();
@@ -150,8 +149,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 					ConnectSocket = INVALID_SOCKET;
 					continue;
 				}
-				printf("Connected to socket at IP: 192.168.1.9");
+				printf("Connected to socket at IP: %s",ip);
 				connected = 1;
+				buttonpress = 0;
 				break;
 			}
 
@@ -166,9 +166,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		}
 		//We are connected send the byte stream
 
-		else if (connected == 1) {
-			
-		}
+		//else if (connected == 1) {
+			//Do nothing
+		//}
 
 	}
 
@@ -390,13 +390,10 @@ int CaptureAnImage(HWND active)
 		}
 		count = count + rcoun;
 	}
-	char start[2] = { 0xFF,0xD8 };
-	char end[2] = { 0xff, 0xd9 };
+	//char start[2] = { 0xFF,0xD8 };
+	//char end[2] = { 0xff, 0xd9 };
 	char *buf;
-	//Send 2 newlines
-	count = 0;
-	
-	
+
 
 	//Send name
 	count = 0;
@@ -543,21 +540,21 @@ int CaptureAnImage(HWND active)
 	BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam) {
 	TCHAR szText[256];
 	if (IsWindowVisible(hWnd) && GetWindow(hWnd, GW_OWNER) == NULL) {
-	//Visible, has no owners
-	if (GetWindowText(hWnd, szText, 256) == 0) // No text in window
-	return TRUE;
-	//Checking to see if the window has a title bar.
-	CaptureAnImage(hWnd);
-	}
-	//Reset window refresh timer
-	UINT_PTR timer = SetTimer(
-		cliwin,
-		0,
-		50,//Milliseconds
-		NULL
-		);
+		//Visible, has no owners
+		if (GetWindowText(hWnd, szText, 256) == 0) // No text in window
+			return TRUE;
+			//Checking to see if the window has a title bar.
+			CaptureAnImage(hWnd);
+		}
+		//Reset window refresh timer
+		UINT_PTR timer = SetTimer(
+			cliwin,
+			0,
+			50,//Milliseconds
+			NULL
+			);
 
-	return TRUE;
+		return TRUE;
 	}
 
 
@@ -565,6 +562,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
 	HDC hdc;
+	TCHAR greeting[] = _T("\nPress the Connect button to begin streaming images to a server. ");
+	TCHAR greeting2[] = _T("\nEnter an IP into the text box to connect to a specific server at port 8000.");
+	TCHAR greeting3[] = _T("\nLeave box blank to connect to localhost server.");
+
+	
 	switch (msg)
 	{
 	case WM_CREATE:
@@ -576,9 +578,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			WS_CHILD | WS_VISIBLE |
 			ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
 			50,
-			100,
+			120,
 			200,
-			100,
+			50,
 			hWnd,
 			(HMENU)IDC_MAIN_EDIT,
 			GetModuleHandle(NULL),
@@ -589,13 +591,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		// Create a push button
 		HWND hWndButton = CreateWindowEx(NULL,
 			L"BUTTON",
-			L"OK",
+			L"Connect",
 			WS_TABSTOP | WS_VISIBLE |
 			WS_CHILD | BS_DEFPUSHBUTTON,
 			50,
-			220,
-			100,
-			24,
+			200,
+			120,
+			50,
 			hWnd,
 			(HMENU)IDC_MAIN_BUTTON,
 			GetModuleHandle(NULL),
@@ -629,10 +631,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_TIMER:
-		hdc = BeginPaint(hWnd, &ps);
 		EnumWindows(EnumWindowsProc, 0);
+		break;
+
+	case WM_PAINT:
+
+		hdc = BeginPaint(hWnd, &ps);
+		// Here your application is laid out.
+		// For this introduction, we just print out "Hello, World!"
+		// in the top left corner.
+		TextOut(hdc,
+			20, 30,
+			greeting, _tcslen(greeting));
+		TextOut(hdc,
+			20, 50,
+			greeting2, _tcslen(greeting2));
+		TextOut(hdc,
+			20, 70,
+			greeting3, _tcslen(greeting3));
+		// End application-specific layout section.
+
 		EndPaint(hWnd, &ps);
 		break;
+
+	case WM_CLOSE://I hope this is what is called when the application is terminated.
+		if (!closesocket(ConnectSocket)) {
+			System::Console::WriteLine("Socket closed successfully.");
+		}
+		//break;
+
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);
