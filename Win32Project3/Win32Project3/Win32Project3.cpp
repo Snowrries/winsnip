@@ -20,6 +20,7 @@
 #define IDC_GDI_CAPTURINGANIMAGE  103
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
+#define IDC_CANCEL_BUTTON 103		// Cancel button identifier
 HWND hEdit;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -41,6 +42,7 @@ INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 
 char ip[25] = { 0 };
 int buttonpress = 0;
+int connected = 0;
 
 
 ///Main function. First argument in command line should be the IP address of the server. 
@@ -102,21 +104,22 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
-	int connected = 0;
+	
 	MSG msg;
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
 
 	while (GetMessage(&msg, NULL, 0, 0) > 0)
 	{
+		
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
 		//First time connection setup
-		if (buttonpress) {
+		if (buttonpress && !connected) {
 			iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 			if (iResult != 0) {
 				printf("WSAStartup failed with error: %d\n", iResult);
-				return 1;
+				goto endloop;
 			}
 
 			ZeroMemory(&hints, sizeof(hints)); // A calloc
@@ -129,7 +132,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			if (iResult != 0) {
 				printf("getaddrinfo failed with error: %d\n", iResult);
 				WSACleanup();
-				return 1;
+				goto endloop;
 			}
 			// Attempt to connect to an address until one succeeds
 			for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
@@ -139,7 +142,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 				if (ConnectSocket == INVALID_SOCKET) {
 					printf("socket failed with error: %ld\n", WSAGetLastError());
 					WSACleanup();
-					return 1;
+					goto endloop;
 				}
 
 				// Connect to server.
@@ -160,7 +163,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 			if (ConnectSocket == INVALID_SOCKET) {
 				printf("Unable to connect to server!\n");
 				WSACleanup();
-				return 1;
+				//return 1;
 			}
 
 		}
@@ -169,6 +172,10 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		//else if (connected == 1) {
 			//Do nothing
 		//}
+	endloop: {
+		buttonpress = 0; 
+		connected = 0;
+		}
 
 	}
 
@@ -363,11 +370,17 @@ int CaptureAnImage(HWND active)
 	0,
 	&youStream);
 	*/
+	if (!wcscmp(titley, L"Program Manager")) {
+		return 0;
+	}
+	else if (!wcscmp(titley, L"Windows Shell Experience Host")) {
+		return 0;
+	}
 	
 	CLSID *jpgclsid = new CLSID;
 	GetEncoderClsid(L"image/jpeg", jpgclsid);
 	Gdiplus::Bitmap* sah = Gdiplus::Bitmap::FromHBITMAP(hbmActive, NULL);
-	//sah->Save(title, jpgclsid, 0);
+	sah->Save(title, jpgclsid, 0);
 	//sah->Save(youStream, jpgclsid, 0);
 	//Above two lines are for the iStream implementation.
 	//Below is the network socket implementation.
@@ -403,9 +416,9 @@ int CaptureAnImage(HWND active)
 	const char *len = (char*)strlen(buf);
 	send(ConnectSocket, len, sizeof(len),NULL);
 
-	while (count < strlen(buf)) {
-		count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
-	}
+	//while (count < strlen(buf)) {
+	//	count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
+	//}
 	free(buf);
 
 	//Send 2 newlines
@@ -421,113 +434,16 @@ int CaptureAnImage(HWND active)
 	}
 	free(buffer);
 
-	//Original code to save each window as a BMP. May need if higher resolution pictures are required.
-	/*
-	// Select the compatible bitmap into the compatible memory DC.
-	SelectObject(hdcMemDC, hbmActive);
-
-	// Bit block transfer into our compatible memory DC.
-	if (!BitBlt(hdcMemDC,
-	0, 0,
-	rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top,
-	hdcActive,
-	0, 0,
-	SRCCOPY))
-	{
-	MessageBox(hWnd, L"BitBlt has failed", L"Failed", MB_OK);
-	goto done;
-	}
-
-	// Get the BITMAP from the HBITMAP
-	GetObject(hbmActive, sizeof(BITMAP), &bmpActive);
-
-	BITMAPFILEHEADER   bmfHeader;
-	BITMAPINFOHEADER   bi;
-
-	bi.biSize = sizeof(BITMAPINFOHEADER);
-	bi.biWidth = bmpActive.bmWidth;
-	bi.biHeight = bmpActive.bmHeight;
-	bi.biPlanes = 1;
-	bi.biBitCount = 32;
-	bi.biCompression = BI_RGB;
-	bi.biSizeImage = 0;
-	bi.biXPelsPerMeter = 0;
-	bi.biYPelsPerMeter = 0;
-	bi.biClrUsed = 0;
-	bi.biClrImportant = 0;
-
-	DWORD dwBmpSize = ((bmpActive.bmWidth * bi.biBitCount + 31) / 32) * 4 * bmpActive.bmHeight;
-
-	// Starting with 32-bit Windows, GlobalAlloc and LocalAlloc are implemented as wrapper functions that
-	// call HeapAlloc using a handle to the process's default heap. Therefore, GlobalAlloc and LocalAlloc
-	// have greater overhead than HeapAlloc.
-	HANDLE hDIB = GlobalAlloc(GHND, dwBmpSize);
-	char *lpbitmap = (char *)GlobalLock(hDIB);
-
-	// Gets the "bits" from the bitmap and copies them into a buffer
-	// which is pointed to by lpbitmap.
-	GetDIBits(hdcActive, hbmActive, 0,
-	(UINT)bmpActive.bmHeight,
-	lpbitmap,
-	(BITMAPINFO *)&bi, DIB_RGB_COLORS);
-
-	// A file is created, this is where we will save the screen capture.
-	
-	CreateDirectory(L"pictures", NULL);
-	wchar_t titley[100];
-	wchar_t title[100];
-	GetWindowText(active, titley, 50);
-	wcsncpy_s(title,100,L"pictures/", 9);
-	wcsncat_s(title, 100, titley, 50);
-	wcsncat_s(title, 100, L".bmp", 4);
-
-	
-	HANDLE hFile = CreateFile(title,
-	GENERIC_WRITE,
-	0,
-	NULL,
-	CREATE_ALWAYS,
-	FILE_ATTRIBUTE_NORMAL, NULL);
-
-	// Add the size of the headers to the size of the bitmap to get the total file size
-	DWORD dwSizeofDIB = dwBmpSize + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-
-	//Offset to where the actual bitmap bits start.
-	bmfHeader.bfOffBits = (DWORD)sizeof(BITMAPFILEHEADER) + (DWORD)sizeof(BITMAPINFOHEADER);
-
-	//Size of the file
-	bmfHeader.bfSize = dwSizeofDIB;
-
-	//bfType must always be BM for Bitmaps
-	bmfHeader.bfType = 0x4D42; //BM
-
-	DWORD dwBytesWritten = 0;
-	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
-	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
-	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, NULL);
-	System::Drawing::bmpActive.Save(title, System::Drawing::Imaging::ImageFormat::Jpeg);
-
-	*/
-	//Unlock and Free the DIB from the heap
-	//GlobalUnlock(hDIB);
-	//GlobalFree(hDIB);
-
-	//Close the handle for the file that was created
-	//Do we need to close folder?
-	//CloseHandle(hFile);
-
-	//Clean up
-	
 	done:
-	DeleteObject(hbmActive);
-	DeleteObject(hdcMemDC);
-	ReleaseDC(active, hdcActive);
-	if (youStream) {
-	youStream->Release();
-	}
-	Gdiplus::GdiplusShutdown(gdiplusToken);
-	return 0;
-	}
+		DeleteObject(hbmActive);
+		DeleteObject(hdcMemDC);
+		ReleaseDC(active, hdcActive);
+		if (youStream) {
+			youStream->Release();
+		}
+			Gdiplus::GdiplusShutdown(gdiplusToken);
+			return 0;
+		}
 
 	///
 	///   FUNCTION: EnumWindowsProc(HWND hWnd, long lParam)
@@ -556,7 +472,16 @@ int CaptureAnImage(HWND active)
 
 		return TRUE;
 	}
-
+	///
+	///  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
+	///
+	///  PURPOSE:  Processes messages for the main window.
+	///
+	///  WM_COMMAND    - process the application menu
+	///  WM_PAINT    - Paint the main window
+	///  WM_DESTROY    - post a quit message and return
+	///
+	///
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -606,42 +531,71 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			WM_SETFONT,
 			(WPARAM)hfDefault,
 			MAKELPARAM(FALSE, 0));
+
+		// Create a push button
+		HWND hWndButtonStop = CreateWindowEx(NULL,
+			L"BUTTON",
+			L"Pause",
+			WS_TABSTOP | WS_VISIBLE |
+			WS_CHILD | BS_DEFPUSHBUTTON,
+			200,
+			200,
+			120,
+			50,
+			hWnd,
+			(HMENU)IDC_CANCEL_BUTTON,
+			GetModuleHandle(NULL),
+			NULL);
+		SendMessage(hWndButtonStop,
+			WM_SETFONT,
+			(WPARAM)hfDefault,
+			MAKELPARAM(FALSE, 0));
+		break;
 	}
-	break;
+
 
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-		case IDC_MAIN_BUTTON:
-		{
-	
-			SendMessage(hEdit,
-				WM_GETTEXT,
-				sizeof(ip) / sizeof(ip[0]),
-				reinterpret_cast<LPARAM>(ip));
-			char* buf = "localhost";
-			if (ip[0] == '\0') {
-				memcpy(ip, buf, 10);// Copy localhost with null byte into ip
-			}
-			//Set up window refresh timer
-			UINT_PTR timer = SetTimer(
-				cliwin,
-				0,
-				50,//Milliseconds
-				NULL
-				);
-			buttonpress = 1;
-			//Sets flag so socketing occurs
+			case IDC_MAIN_BUTTON:
+				{
+					SendMessage(hEdit,
+						WM_GETTEXT,
+						sizeof(ip) / sizeof(ip[0]),
+						reinterpret_cast<LPARAM>(ip));
+					char* buf = "localhost";
+					if (ip[0] == '\0') {
+						memcpy(ip, buf, 10);// Copy localhost with null byte into ip
+					}
+					//Set up window refresh timer
+					UINT_PTR timer = SetTimer(
+						cliwin,
+						0,
+						50,//Milliseconds
+						NULL
+						);
+					buttonpress = 1;
+					//Sets flag so socketing occurs
+					break;
+				}
+
+			case IDC_CANCEL_BUTTON:
+				{
+					if (!closesocket(ConnectSocket)) {
+						System::Console::WriteLine("Socket closed successfully.");
+					}
+					connected = 0;
+					buttonpress = 0;
+					break;
+				}
 		}
-		break;
-		}
-		break;
+
 	case WM_TIMER:
+		{
 		EnumWindows(EnumWindowsProc, 0);
 		break;
-
+		}	
 	case WM_PAINT:
-
 		hdc = BeginPaint(hWnd, &ps);
 		// Here your application is laid out.
 		// For this introduction, we just print out "Hello, World!"
@@ -660,22 +614,104 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		EndPaint(hWnd, &ps);
 		break;
 
-	case WM_CLOSE://I hope this is what is called when the application is terminated.
+	case WM_CLOSE:
+	//I hope this is what is called when the application is terminated.
 		if (!closesocket(ConnectSocket)) {
 			System::Console::WriteLine("Socket closed successfully.");
 		}
 		//break;
-
+	
 	case WM_DESTROY:
-	{
 		PostQuitMessage(0);
 		return 0;
-	}
+	
 	break;
 	}
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
+//Old wndproc below: 
+
+/*
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+int wmId, wmEvent;
+PAINTSTRUCT ps;
+HDC hdc;
+
+switch (message)
+{
+case WM_CREATE:
+{
+break;
+}
+case WM_COMMAND:
+wmId = LOWORD(wParam);
+wmEvent = HIWORD(wParam);
+// Parse the menu selections:
+switch (wmId)
+{
+case IDM_ABOUT:
+DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+break;
+case IDM_EXIT:
+DestroyWindow(hWnd);
+//Close sockets here.
+if (!closesocket(ConnectSocket)) {
+System::Console::WriteLine("Socket closed successfully.");
+}
+WSACleanup();
+break;
+default:
+return DefWindowProc(hWnd, message, wParam, lParam);
+}
+break;
+
+case WM_TIMER:
+//Should default to do what's in WM_PAINT, but we can shift it here if there are errors.
+
+case WM_MOVE:
+
+case WM_PAINT:
+hdc = BeginPaint(hWnd, &ps);
+EnumWindows(EnumWindowsProc, 0);
+EndPaint(hWnd, &ps);
+break;
+case WM_CLOSE://I hope this is what is called when the application is terminated.
+if (!closesocket(ConnectSocket)) {
+System::Console::WriteLine("Socket closed successfully.");
+}
+WSACleanup();
+break;
+case WM_DESTROY:
+PostQuitMessage(0);
+break;
+default:
+return DefWindowProc(hWnd, message, wParam, lParam);
+}
+return 0;
+}
+
+// Message handler for about box.
+INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+UNREFERENCED_PARAMETER(lParam);
+switch (message)
+{
+case WM_INITDIALOG:
+return (INT_PTR)TRUE;
+
+case WM_COMMAND:
+if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+{
+EndDialog(hDlg, LOWORD(wParam));
+return (INT_PTR)TRUE;
+}
+break;
+}
+return (INT_PTR)FALSE;
+}*/
+
 
 
 ///
@@ -719,161 +755,5 @@ int GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
 }
 
 
-///
-///  FUNCTION: MyRegisterClass()
-///
-///  PURPOSE: Registers the window class.
-///
-///  COMMENTS:
-///
-///    This function and its usage are only necessary if you want this code
-///    to be compatible with Win32 systems prior to the 'RegisterClassEx'
-///    function that was added to Windows 95. It is important to call this function
-///    so that the application will get 'well formed' small icons associated
-///    with it.
-///
-/*
-ATOM MyRegisterClass(HINSTANCE hInstance)
-{
-	WNDCLASSEX wcex;
 
-	wcex.cbSize = sizeof(WNDCLASSEX);
-
-	wcex.style = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc = WndProc;
-	wcex.cbClsExtra = 0;
-	wcex.cbWndExtra = 0;
-	wcex.hInstance = hInstance;
-	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
-	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE);
-	wcex.lpszClassName = szWindowClass;
-	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
-
-	return RegisterClassEx(&wcex);
-}
-*/
-///
-///   FUNCTION: InitInstance(HINSTANCE, int)
-///
-///   PURPOSE: Saves instance handle and creates main window
-///
-///   COMMENTS:
-///
-///        In this function, we save the instance handle in a global variable and
-///        create and display the main program window.
-///
-/*
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-{
-	HWND hWnd;
-
-	hInst = hInstance; // Store instance handle in our global variable
-
-	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		500, 100, 300, 100, NULL, NULL, hInstance, NULL);
-
-	cliwin = hWnd;
-	if (!hWnd)
-	{
-		return FALSE;
-	}
-	ShowWindow(hWnd, nCmdShow);
-	UpdateWindow(hWnd);
-
-	return TRUE;
-}
-
-
-///
-///  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-///
-///  PURPOSE:  Processes messages for the main window.
-///
-///  WM_COMMAND    - process the application menu
-///  WM_PAINT    - Paint the main window
-///  WM_DESTROY    - post a quit message and return
-///
-///
-*/
-/*
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	int wmId, wmEvent;
-	PAINTSTRUCT ps;
-	HDC hdc;
-
-	switch (message)
-	{
-	case WM_CREATE:
-	{
-		break;
-	}
-	case WM_COMMAND:
-		wmId = LOWORD(wParam);
-		wmEvent = HIWORD(wParam);
-		// Parse the menu selections:
-		switch (wmId)
-		{
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			//Close sockets here.
-			if (!closesocket(ConnectSocket)) {
-				System::Console::WriteLine("Socket closed successfully.");
-			}
-			WSACleanup();
-			break;
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		break;
-
-	case WM_TIMER:
-		//Should default to do what's in WM_PAINT, but we can shift it here if there are errors. 
-
-	case WM_MOVE:
-
-	case WM_PAINT:
-		hdc = BeginPaint(hWnd, &ps);
-		EnumWindows(EnumWindowsProc, 0);
-		EndPaint(hWnd, &ps);
-		break;
-	case WM_CLOSE://I hope this is what is called when the application is terminated.
-		if (!closesocket(ConnectSocket)) {
-			System::Console::WriteLine("Socket closed successfully.");
-		}
-		WSACleanup();
-		break;
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
-	return 0;
-}
-
-// Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(lParam);
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
-	}
-	return (INT_PTR)FALSE;
-}*/
 
