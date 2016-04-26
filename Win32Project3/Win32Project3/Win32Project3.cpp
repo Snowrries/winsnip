@@ -412,6 +412,7 @@ int CaptureAnImage(HWND active)
 			if (ThreadArray[iof].hand == NULL)
 				{return TRUE;}
 		}
+		
 		/*Reset window refresh timer
 		UINT_PTR timer = SetTimer(
 			cliwin,
@@ -446,6 +447,7 @@ int CaptureAnImage(HWND active)
 			CaptureAnImage((HWND)lpParam);
 			Sleep(50);//Wait 50 milliseconds to refresh
 		}
+		//System::Threading::Thread::Abort();
 		return 0;
 	}
 
@@ -513,7 +515,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		// Create a push button
 		HWND hWndButtonStop = CreateWindowEx(NULL,
 			L"BUTTON",
-			L"Pause",
+			L"End",
 			WS_TABSTOP | WS_VISIBLE |
 			WS_CHILD | BS_DEFPUSHBUTTON,
 			200,
@@ -537,6 +539,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			case IDC_MAIN_BUTTON:
 				{
+					cancel = 0;
 					SendMessage(hEdit,
 						WM_GETTEXT,
 						sizeof(ip) / sizeof(ip[0]),
@@ -594,7 +597,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	//I hope this is what is called when the application is terminated.
 		if (!closesocket(ConnectSocket)) {
 			System::Console::WriteLine("Socket closed successfully.");
-		}
+		}	
 		//break;
 	
 	case WM_DESTROY:
@@ -606,88 +609,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
-//Old wndproc below: 
-
-/*
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-int wmId, wmEvent;
-PAINTSTRUCT ps;
-HDC hdc;
-
-switch (message)
-{
-case WM_CREATE:
-{
-break;
-}
-case WM_COMMAND:
-wmId = LOWORD(wParam);
-wmEvent = HIWORD(wParam);
-// Parse the menu selections:
-switch (wmId)
-{
-case IDM_ABOUT:
-DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-break;
-case IDM_EXIT:
-DestroyWindow(hWnd);
-//Close sockets here.
-if (!closesocket(ConnectSocket)) {
-System::Console::WriteLine("Socket closed successfully.");
-}
-WSACleanup();
-break;
-default:
-return DefWindowProc(hWnd, message, wParam, lParam);
-}
-break;
-
-case WM_TIMER:
-//Should default to do what's in WM_PAINT, but we can shift it here if there are errors.
-
-case WM_MOVE:
-
-case WM_PAINT:
-hdc = BeginPaint(hWnd, &ps);
-EnumWindows(EnumWindowsProc, 0);
-EndPaint(hWnd, &ps);
-break;
-case WM_CLOSE://I hope this is what is called when the application is terminated.
-if (!closesocket(ConnectSocket)) {
-System::Console::WriteLine("Socket closed successfully.");
-}
-WSACleanup();
-break;
-case WM_DESTROY:
-PostQuitMessage(0);
-break;
-default:
-return DefWindowProc(hWnd, message, wParam, lParam);
-}
-return 0;
-}
-
-// Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-UNREFERENCED_PARAMETER(lParam);
-switch (message)
-{
-case WM_INITDIALOG:
-return (INT_PTR)TRUE;
-
-case WM_COMMAND:
-if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-{
-EndDialog(hDlg, LOWORD(wParam));
-return (INT_PTR)TRUE;
-}
-break;
-}
-return (INT_PTR)FALSE;
-}*/
-
 
 
 ///
