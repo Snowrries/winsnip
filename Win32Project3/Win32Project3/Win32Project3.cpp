@@ -7,6 +7,7 @@
 #include <gdiplus.h>
 #include <Windows.h>
 #include <tchar.h>
+#include <string>
 
 #pragma comment (lib, "Ws2_32.lib")
 #pragma comment (lib, "Mswsock.lib")
@@ -374,13 +375,13 @@ int CaptureAnImage(HWND active)
 	//The istream created is in memory, should be able to read from youStream and write to a socket.
 	count =  0;
 	IStream_Size(youStream, &full);
-	char* buffer = (char*)malloc((size_t)full.QuadPart);//Doublecheck this line
+	char* buffer = (char*)malloc((size_t)full.LowPart);//Doublecheck this line
 	ULONG rcoun = 0;
 	IStream_Reset(youStream);
 	//Consider threading networking area below to increase efficiency and decrease hanging (?)
 	//Issue: Would need to create a new socket for each thread if we go this route: likely infeasible for client-side.
-	while (count < full.QuadPart) {
-		result = youStream->Read(&buffer[count], full.QuadPart, &rcoun);
+	while (count < full.LowPart) {
+		result = youStream->Read(&buffer[count], full.LowPart, &rcoun);
 		//	result = IStream_Read(youStream, buffer, full.QuadPart);
 		if (result != S_OK && result != S_FALSE) {
 			System::Console::Write("iStream read error");
@@ -389,36 +390,40 @@ int CaptureAnImage(HWND active)
 		}
 		count = count + rcoun;
 	}
+	char start[2] = { 0xFF,0xD8 };
+	char end[2] = { 0xff, 0xd9 };
 	char *buf;
 	//Send 2 newlines
 	count = 0;
-	while (count < sizeof("\n\n")) {
-		count += send(ConnectSocket, "\n\n", 2, NULL);
-	}
+	
+	
 
 	//Send name
 	count = 0;
 	size_t r;
 	buf = (char*)malloc(64);
 	wcstombs_s(&r,buf,64,titley,64);
+	const char *len = (char*)strlen(buf);
+	send(ConnectSocket, len, sizeof(len),NULL);
+
 	while (count < strlen(buf)) {
 		count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
 	}
 	free(buf);
 
 	//Send 2 newlines
-	//count = 0;
-	while (count < sizeof("\n\n")) {
-		count += send(ConnectSocket, "\n\n", 2, NULL);
-	}
+	
+	len = (char*)full.LowPart;
+	send(ConnectSocket, len, sizeof(len), NULL);
 	//Send image
-	while (count < full.QuadPart) {
+	while (count < full.LowPart) {
 		//Write to socket and keep track of bytes written in count, update accordingly.
 
-		count += send(ConnectSocket, &buffer[count], full.QuadPart, NULL);
+		count += send(ConnectSocket, &buffer[count], full.LowPart, NULL);
 
 	}
 	free(buffer);
+
 	//Original code to save each window as a BMP. May need if higher resolution pictures are required.
 	/*
 	// Select the compatible bitmap into the compatible memory DC.
