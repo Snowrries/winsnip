@@ -6,3 +6,10 @@ struct winpacket {
 	//string name
 
 };
+
+struct HANDLEstrt
+{
+	HANDLE hand;
+	HWND hWnd;
+};
+typedef struct HANDLEstrt windptr;

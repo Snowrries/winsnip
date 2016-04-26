@@ -21,7 +21,9 @@
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
 #define IDC_CANCEL_BUTTON 103		// Cancel button identifier
+#define MAX_THREADS 128
 HWND hEdit;
+INT cancel = 0;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Global Variables:
@@ -32,12 +34,16 @@ HWND cliwin;
 //IStorage* youStorage = NULL; //Currently unnecessary
 SOCKET ConnectSocket = INVALID_SOCKET;
 
+HWND	pDataArray[MAX_THREADS];
+DWORD   dwThreadIdArray[MAX_THREADS];
+windptr* ThreadArray;
+
 /// Forward declarations of functions included in this code module:
 //ATOM                MyRegisterClass(HINSTANCE hInstance);
 //BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-BOOL CALLBACK		EnumWindowsProc(HWND hWnd, long lParam);
+BOOL CALLBACK		EnumWindowsProc(HWND hWnd, LPARAM lParam);
 INT					GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 
 char ip[25] = { 0 };
@@ -51,16 +57,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	LPTSTR    lpCmdLine,
 	int       nCmdShow)
 {
-
-//	HACCEL hAccelTable;
-
-
 	HACCEL hAccelTable;
-	int iResult; //To take the result of function calls
-	WSADATA wsaData; //Sockets.
-	struct addrinfo *result = NULL, //For socketing address purposes
-		*ptr = NULL,
-		hints;
 
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
@@ -107,6 +104,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	
 	MSG msg;
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
+	ThreadArray = (windptr*)malloc(MAX_THREADS * sizeof(windptr));
+
+
 
 	while (GetMessage(&msg, NULL, 0, 0) > 0)
 	{
@@ -114,180 +114,84 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
-		//First time connection setup
-		if (buttonpress && !connected) {
-			iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-			if (iResult != 0) {
-				printf("WSAStartup failed with error: %d\n", iResult);
-				goto endloop;
-			}
-
-			ZeroMemory(&hints, sizeof(hints)); // A calloc
-			hints.ai_family = AF_UNSPEC;
-			hints.ai_socktype = SOCK_STREAM;
-			hints.ai_protocol = IPPROTO_TCP;
-
-			// Resolve the server address and port
-			iResult = getaddrinfo(ip, DEFAULT_PORT, &hints, &result);
-			if (iResult != 0) {
-				printf("getaddrinfo failed with error: %d\n", iResult);
-				WSACleanup();
-				goto endloop;
-			}
-			// Attempt to connect to an address until one succeeds
-			for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-				// Create a SOCKET for connecting to server
-				ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
-					ptr->ai_protocol);
-				if (ConnectSocket == INVALID_SOCKET) {
-					printf("socket failed with error: %ld\n", WSAGetLastError());
-					WSACleanup();
-					goto endloop;
-				}
-
-				// Connect to server.
-				iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-				if (iResult == SOCKET_ERROR) {
-					closesocket(ConnectSocket);
-					ConnectSocket = INVALID_SOCKET;
-					continue;
-				}
-				printf("Connected to socket at IP: %s",ip);
-				connected = 1;
-				buttonpress = 0;
-				break;
-			}
-
-			freeaddrinfo(result);
-
-			if (ConnectSocket == INVALID_SOCKET) {
-				printf("Unable to connect to server!\n");
-				WSACleanup();
-				//return 1;
-			}
-
-		}
-		//We are connected send the byte stream
-
-		//else if (connected == 1) {
-			//Do nothing
-		//}
-	endloop: {
-		buttonpress = 0; 
-		connected = 0;
-		}
-
 	}
 
 	
 	return 0;
 
 }
-	/*
-	MSG msg;
-	HACCEL hAccelTable;
+///   FUNCTION: ConnectToServer()
+///
+///   PURPOSE: Connect to a server given a global IP.
+///
+///   COMMENTS: 
+///
+///			Will be called by every single thread to create single sockets for each window.
+///			Returns 0 on success, -1 on failure
+///			Called on buttonpress == 1 and connected == 0
+
+int ConnectToServer() {
+
 	int iResult; //To take the result of function calls
 	WSADATA wsaData; //Sockets.
 	struct addrinfo *result = NULL, //For socketing address purposes
 		*ptr = NULL,
 		hints;
+	//First time connection setup
+		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (iResult != 0) {
+			printf("WSAStartup failed with error: %d\n", iResult);
+			buttonpress = 0;
+			return -1;
+		}
 
-	// Initialize global strings
-	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-	LoadString(hInstance, IDC_GDI_CAPTURINGANIMAGE, szWindowClass, MAX_LOADSTRING);
-	MyRegisterClass(hInstance);
+		ZeroMemory(&hints, sizeof(hints)); // A calloc
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
 
-	// Create a compound file object, and get
-	// a pointer to its IStorage interface.
-	//StgCreateDocfile(
-	//	L"CompoundFile.cmp",
-	//	STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
-	//	0,
-	//	&youStorage);
-
-	//Socketing adapted from MSDN example
-
-	// Perform application initialization:
-
-	if (!InitInstance(hInstance, nCmdShow))
-	{
-		return FALSE;
-	}
-
-	// Initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (iResult != 0) {
-		printf("WSAStartup failed with error: %d\n", iResult);
-		return 1;
-	}
-
-	ZeroMemory(&hints, sizeof(hints)); // A calloc
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	// Resolve the server address and port
-	iResult = getaddrinfo("192.168.1.113", DEFAULT_PORT, &hints, &result);
-	if (iResult != 0) {
-		printf("getaddrinfo failed with error: %d\n", iResult);
-		WSACleanup();
-		return 1;
-	}
-	// Attempt to connect to an address until one succeeds
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
-			ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
+		// Resolve the server address and port
+		iResult = getaddrinfo(ip, DEFAULT_PORT, &hints, &result);
+		if (iResult != 0) {
+			printf("getaddrinfo failed with error: %d\n", iResult);
 			WSACleanup();
-			return 1;
+			buttonpress = 0;
+			return -1;
+		}
+		// Attempt to connect to an address until one succeeds
+		for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+			// Create a SOCKET for connecting to server
+			ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+				ptr->ai_protocol);
+			if (ConnectSocket == INVALID_SOCKET) {
+				printf("socket failed with error: %ld\n", WSAGetLastError());
+				WSACleanup();
+				continue;
+			}
+
+			// Connect to server.
+			iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+			if (iResult == SOCKET_ERROR) {
+				closesocket(ConnectSocket);
+				ConnectSocket = INVALID_SOCKET;
+				continue;
+			}
+			printf("Connected to socket at IP: %s", ip);
+			connected = 1;
+			break;
 		}
 
-		// Connect to server.
-		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
-			continue;
+		freeaddrinfo(result);
+
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("Unable to connect to server!\n");
+			WSACleanup();
+			return -1;
 		}
-		printf("Connected to socket at IP: 192.168.1.113");
-		break;
+		buttonpress = 0;
+		return 0;
+
 	}
-
-	freeaddrinfo(result);
-
-if (ConnectSocket == INVALID_SOCKET) {
-	printf("Unable to connect to server!\n");
-	WSACleanup();
-	return 1;
-}
-
-	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GDI_CAPTURINGANIMAGE));
-	
-	//Set up window refresh timer
-	UINT_PTR timer = SetTimer(
-		cliwin,
-		0,
-		1,//Milliseconds
-		NULL
-		);
-
-	// Main message loop:
-	while (GetMessage(&msg, NULL, 0, 0))
-	{
-		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
-
-
-	return (int)msg.wParam;
-	*/
-	//return 0;
-//}
 
 ///
 ///   FUNCTION: CaptureAnImage(HWND active)
@@ -298,6 +202,7 @@ if (ConnectSocket == INVALID_SOCKET) {
 ///
 ///      Note: This sample will attempt to create a file with the same title as the window, 
 ///			and a max limit of approximately 50 chars 
+///			If ConnectToServer fails, function will return -1 for failure. 
 ///        
 
 
@@ -370,12 +275,6 @@ int CaptureAnImage(HWND active)
 	0,
 	&youStream);
 	*/
-	if (!wcscmp(titley, L"Program Manager")) {
-		return 0;
-	}
-	else if (!wcscmp(titley, L"Windows Shell Experience Host")) {
-		return 0;
-	}
 	
 	CLSID *jpgclsid = new CLSID;
 	GetEncoderClsid(L"image/jpeg", jpgclsid);
@@ -446,32 +345,95 @@ int CaptureAnImage(HWND active)
 		}
 
 	///
-	///   FUNCTION: EnumWindowsProc(HWND hWnd, long lParam)
+	///   FUNCTION: EnumWindowsProc(HWND hWnd, LPARAM lParam)
 	///
 	///   PURPOSE: Callback function to enumerate through windows.
 	///
 	///   COMMENTS:
 	///
-	///			Set up a timer to enumerate through the windows every millisecond, and set a new timer everytime this function is called.
-	BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam) {
-	TCHAR szText[256];
-	if (IsWindowVisible(hWnd) && GetWindow(hWnd, GW_OWNER) == NULL) {
-		//Visible, has no owners
-		if (GetWindowText(hWnd, szText, 256) == 0) // No text in window
-			return TRUE;
-			//Checking to see if the window has a title bar.
-			CaptureAnImage(hWnd);
+	///		Create a new thread for each valid window upon a socket will be connected, and a jpeg stream made.
+	///		Return value of true to continue enumerating.
+	///		Save the handle into the pointer given in HANDLE*. Will be &lParam[appropriateIndex], so no concern is necessary.
+
+	BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam) {
+		TCHAR szText[256];
+		DWORD WINAPI MyThreadFunction(LPVOID lpParam);
+		DWORD ThreadId;
+		windptr* pontr = (windptr*)lParam;
+		int iof;//instance of free handlespot
+		int flag = 0; //Only take first free handlespot
+
+		if (IsWindowVisible(hWnd) && GetWindow(hWnd, GW_OWNER) == NULL) {
+			//Visible, has no owners
+			if (GetWindowText(hWnd, szText, 256) == 0) // No text in window
+				return TRUE;
+				//Checking to see if the window has a title bar.
+
+			if (!wcscmp(szText, L"Program Manager")) {
+				return TRUE;
+			}
+			else if (!wcscmp(szText, L"Windows Shell Experience Host")) {
+				return TRUE;
+			}
+			for (int i = 0; i < MAX_THREADS; i++) {
+				if (ThreadArray[i].hWnd == hWnd) {
+					return TRUE;
+				}
+				if ( !flag && !IsWindow(ThreadArray[i].hWnd)) {
+					iof = i;
+					flag = 1;
+				}
+			}
+			flag = 0;
+			ThreadArray[iof].hWnd = hWnd;
+			ThreadArray[iof].hand = CreateThread(
+				NULL,                   // default security attributes
+				0,                      // use default stack size  
+				MyThreadFunction,       // thread function name
+				hWnd,				    // argument to thread function 
+				0,                      // use default creation flags 
+				&ThreadId);				// returns the thread identifier 
+			if (ThreadArray[iof].hand == NULL)
+				{return TRUE;}
 		}
-		//Reset window refresh timer
+		/*Reset window refresh timer
 		UINT_PTR timer = SetTimer(
 			cliwin,
 			0,
 			50,//Milliseconds
 			NULL
 			);
-
+		*/
 		return TRUE;
 	}
+
+	///
+	///
+	///   FUNCTION: MyThreadFunction(LPVOID lpParam)
+	///
+	///   PURPOSE: Threading function
+	///
+	///   COMMENTS:
+	///			Sets up a new socket connection and streams the window feed. lpParam is a HWND. 
+	///			If ConnectToServer fails, function will return -1 for failure. 
+	///        
+
+
+
+	DWORD WINAPI MyThreadFunction(LPVOID lpParam)
+	{
+		
+		if (ConnectToServer() < 0) {
+			return -1;
+		}	
+		while (!cancel) {
+			CaptureAnImage((HWND)lpParam);
+			Sleep(50);//Wait 50 milliseconds to refresh
+		}
+		return 0;
+	}
+
+
 	///
 	///  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 	///
@@ -586,6 +548,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					}
 					connected = 0;
 					buttonpress = 0;
+					cancel = 1; //Setting this will stop the stream while loop.
 					break;
 				}
 		}
@@ -597,9 +560,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}	
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
-		// Here your application is laid out.
-		// For this introduction, we just print out "Hello, World!"
-		// in the top left corner.
 		TextOut(hdc,
 			20, 30,
 			greeting, _tcslen(greeting));
