@@ -1,5 +1,7 @@
-// Win32Project3.cpp : Defines the entry point for the application.
-//
+  // written by: Allen Tung
+  // tested by: Allen Tung, Anthony Wong
+  // debugged by: Allen Tung, Anthony Wong
+  // reviewed by: Yue Yang
 
 #include "stdafx.h"
 #include "Win32Project3.h"
