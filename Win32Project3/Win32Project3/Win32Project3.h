@@ -1,3 +1,5 @@
+  // written by Allen Tung
+  
 #pragma once
 
 #include "resource.h"
